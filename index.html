@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Chess AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #menuScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .menu-title {
+            font-size: 4rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            text-shadow: 0 0 20px #00ffff;
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .menu-options {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .menu-button {
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            background: linear-gradient(45deg, #333, #555);
+            border: 2px solid #00ffff;
+            color: white;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            min-width: 250px;
+            text-align: center;
+        }
+
+        .menu-button:hover {
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 255, 255, 0.3);
+        }
+
+        .color-selection {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .color-button {
+            padding: 0.8rem 1.5rem;
+            font-size: 1rem;
+            background: #333;
+            border: 2px solid #666;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .color-button.selected {
+            border-color: #00ffff;
+            background: rgba(0, 255, 255, 0.2);
+        }
+
+        #gameUI {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .ui-panel {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #00ffff;
+            backdrop-filter: blur(10px);
+        }
+
+        .game-info {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+
+        .game-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .control-button {
+            padding: 8px 16px;
+            background: linear-gradient(45deg, #333, #555);
+            border: 1px solid #00ffff;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .control-button:hover {
+            background: linear-gradient(45deg, #00ffff, #0088ff);
+            transform: translateY(-1px);
+        }
+
+        .control-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #statusPanel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            text-align: center;
+            z-index: 100;
+        }
+
+        .status-message {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: 1px solid #00ffff;
+            display: inline-block;
+            font-size: 1.1rem;
+            backdrop-filter: blur(10px);
+        }
+
+        #threeCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            z-index: 200;
+        }
+
+        .spinner {
+            border: 4px solid #333;
+            border-top: 4px solid #00ffff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .menu-title {
+                font-size: 2.5rem;
+            }
+            
+            .menu-button {
+                font-size: 1rem;
+                padding: 0.8rem 1.5rem;
+                min-width: 200px;
+            }
+            
+            #gameUI {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+            }
+            
+            .ui-panel {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="menuScreen">
+            <h1 class="menu-title">3D Chess AI</h1>
+            <div class="menu-options">
+                <div class="color-selection">
+                    <div class="color-button selected" data-color="white">Play as White</div>
+                    <div class="color-button" data-color="black">Play as Black</div>
+                </div>
+                <button class="menu-button" data-difficulty="easy">Easy AI</button>
+                <button class="menu-button" data-difficulty="medium">Medium AI</button>
+                <button class="menu-button" data-difficulty="hard">Hard AI</button>
+                <button class="menu-button" id="aiVsAiBtn">Watch AI vs AI</button>
+            </div>
+        </div>
+
+        <div id="gameUI" style="display: none;">
+            <div class="ui-panel">
+                <div class="game-info">
+                    <div>Turn: <span id="currentPlayer">White</span></div>
+                    <div>Difficulty: <span id="difficultyDisplay">Easy</span></div>
+                    <div>Status: <span id="gameStatus">Playing</span></div>
+                </div>
+                <div class="game-controls">
+                    <button class="control-button" id="undoBtn">Undo Move</button>
+                    <button class="control-button" id="restartBtn">Restart Game</button>
+                    <button class="control-button" id="menuBtn">Main Menu</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="statusPanel">
+            <div class="status-message" id="statusMessage">Welcome to 3D Chess!</div>
+        </div>
+
+        <canvas id="threeCanvas"></canvas>
+    </div>
+
+    <script>
+        // Chess.js library embedded
+        !function(e,t){"object"==typeof exports&&"undefined"!=typeof module?module.exports=t():"function"==typeof define&&define.amd?define(t):(e="undefined"!=typeof globalThis?globalThis:e||self).Chess=t()}(this,function(){"use strict";const e="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR",t=" w KQkq - 0 1",n="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",r={EMPTY:-1,PAWN:0,KNIGHT:1,BISHOP:2,ROOK:3,QUEEN:4,KING:5},i={WHITE:0,BLACK:1},o={NORMAL:"n",CAPTURE:"c",BIG_PAWN:"b",EP_CAPTURE:"e",PROMOTION:"p",KSIDE_CASTLE:"k",QSIDE_CASTLE:"q"},s=["","","","","","","","",,"","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","a8","b8","c8","d8","e8","f8","g8","h8","","a7","b7","c7","d7","e7","f7","g7","h7","","a6","b6","c6","d6","e6","f6","g6","h6","","a5","b5","c5","d5","e5","f5","g5","h5","","a4","b4","c4","d4","e4","f4","g4","h4","","a3","b3","c3","d3","e3","f3","g3","h3","","a2","b2","c2","d2","e2","f2","g2","h2","","a1","b1","c1","d1","e1","f1","g1","h1"];function a(e){return s[e]}const c={a8:0,b8:1,c8:2,d8:3,e8:4,f8:5,g8:6,h8:7,a7:16,b7:17,c7:18,d7:19,e7:20,f7:21,g7:22,h7:23,a6:32,b6:33,c6:34,d6:35,e6:36,f6:37,g6:38,h6:39,a5:48,b5:49,c5:50,d5:51,e5:52,f5:53,g5:54,h5:55,a4:64,b4:65,c4:66,d4:67,e4:68,f4:69,g4:70,h4:71,a3:80,b3:81,c3:82,d3:83,e3:84,f3:85,g3:86,h3:87,a2:96,b2:97,c2:98,d2:99,e2:100,f2:101,g2:102,h2:103,a1:112,b1:113,c1:114,d1:115,e1:116,f1:117,g1:118,h1:119};function u(e){return c[e]}const l=128,f={p:r.PAWN,n:r.KNIGHT,b:r.BISHOP,r:r.ROOK,q:r.QUEEN,k:r.KING},h={[r.PAWN]:"p",[r.KNIGHT]:"n",[r.BISHOP]:"b",[r.ROOK]:"r",[r.QUEEN]:"q",[r.KING]:"k"},d=1,p=2,g=4,m=8,w=16,v=32,b=-17,k=-16,y=-15,x=-1,C=1,E=15,A=16,S=17,_=[[20,0],[0,20],[-20,0],[0,-20]],P=[[20,-8],[12,-19],[-8,-19],[-19,-12],[-19,12],[-8,19],[12,19],[20,8]],T=[[20,-20],[-20,-20],[-20,20],[20,20]],N=[[20,-8],[12,-19],[-8,-19],[-19,-12],[-19,12],[-8,19],[12,19],[20,8],[20,0],[0,20],[-20,0],[0,-20]],O=[[20,-20],[-20,-20],[-20,20],[20,20],[20,0],[0,20],[-20,0],[0,-20]],I=[[20,0],[0,20],[-20,0],[0,-20],[20,-20],[-20,-20],[-20,20],[20,20],[20,-8],[12,-19],[-8,-19],[-19,-12],[-19,12],[-8,19],[12,19],[20,8]],R={[r.PAWN]:[],[r.KNIGHT]:P,[r.BISHOP]:T,[r.ROOK]:_,[r.QUEEN]:O,[r.KING]:I},q=function(e,t){const n=[],r=R[e];for(let e=0,i=r.length;e<i;e++){const i=t;let o=i+r[e];for(;;){if(l&o)break;if(n.push(o),e===r.KING)break;o+=r[e]}if(e===r.KING&&127&t)break}return n},j=[],K=[];!function(){for(let e=0;e<128;e++){j[e]=q(r.ROOK,e),K[e]=q(r.BISHOP,e)}}();const M=65536;function D(e){return e&M}function B(e){return e>>>16}function L(e,t){return e|t<<16}function Q(e){return 127&e}function $(e){return e>>4}function F(e){return 15&e}function U(e,t){return e<<4|t}function V(e){return 112&e?r.EMPTY:F(e)}function W(e){return 112&e?i.WHITE:$(e)}class G{constructor(r=n){this._board=new Array(128),this._turn=i.WHITE,this._header={},this._kings={[i.WHITE]:l,[i.BLACK]:l},this._ep_square=l,this._half_moves=0,this._move_number=1,this._history=[],this._comments={},this._castling={[i.WHITE]:0,[i.BLACK]:0};const o="string"==typeof r?r:n;this.load(o)}clear(e=!0){this._board=new Array(128),this._kings={[i.WHITE]:l,[i.BLACK]:l},this._turn=i.WHITE,this._castling={[i.WHITE]:0,[i.BLACK]:0},this._ep_square=l,this._half_moves=0,this._move_number=1,this._history=[],this._comments={},e&&(this._header={})}load(e,t=!1){let n=e.split(/\s+/);if(n.length>=4){if(this.clear(t),!this._load_fen(n[0],n[1],n[2],n[3]))return!1;n.length>=6&&(this._half_moves=parseInt(n[4],10),this._move_number=parseInt(n[5],10))}else{if(!this._load_fen(e))return!1;this._update_castling_rights(),this._update_en_passant_square()}return this._update_setup(this.fen()),!0}_load_fen(e,t,n,r){const o=e.split("/");if(8!==o.length)return!1;for(let e=0;e<8;e++){const t=o[e];let n=0,s=U(e,0);for(let e=0;e<t.length;e++){const o=t.charAt(e);if(isNaN(parseInt(o,10))){if(!(o.toLowerCase()in f))return!1;const e=W(o)===o.toUpperCase()?i.WHITE:i.BLACK,t=f[o.toLowerCase()];this._board[s]=U(e,t),t===r.KING&&(this._kings[e]=s),s++,n++}else s+=parseInt(o,10),n+=parseInt(o,10);if(n>8)return!1}}return"w"!==(this._turn="w"===t?i.WHITE:i.BLACK)&&"b"!==t||this._update_castling_rights(n),this._update_en_passant_square(r),!0}_update_castling_rights(e){const t=[i.WHITE,i.BLACK],n=[[r.KING,u("e1"),d|p],[r.KING,u("e8"),g|m],[r.ROOK,u("a1"),p],[r.ROOK,u("h1"),d],[r.ROOK,u("a8"),m],[r.ROOK,u("h8"),g]];this._castling={[i.WHITE]:0,[i.BLACK]:0};for(const r of n){const[n,i,o]=r,s=V(this._board[i])===n&&W(this._board[i]);for(const n of t)this._castling[n]&o||(this._castling[n]|=s?o:0)}if(e)for(let t=0;t<e.length;t++){const n=e.charAt(t);switch(n){case"K":this._castling[i.WHITE]|=d;break;case"Q":this._castling[i.WHITE]|=p;break;case"k":this._castling[i.BLACK]|=g;break;case"q":this._castling[i.BLACK]|=m;break;default:return!1}}return!0}_update_en_passant_square(e){if(!e||"-"===e)return this._ep_square=l,!0;const t=u(e);return t?(this._ep_square=t,!0):(this._ep_square=l,!1)}_update_setup(e){e!==n&&(this._header.SetUp="1",this._header.FEN=e)}fen(){let e,t=0;for(let n=0;n<8;n++){for(let r=0;r<8;r++){const i=this._board[U(n,r)];if(i){if(t>0&&(e+=t.toString(),t=0),e+=W(i)===i.WHITE?h[V(i)].toUpperCase():h[V(i)]);else t++}t>0&&(e+=t.toString(),t=0),n<7&&(e+="/")}e+=" ",e+=this._turn===i.WHITE?"w":"b",e+=" ";let r="";this._castling[i.WHITE]&d&&(r+="K"),this._castling[i.WHITE]&p&&(r+="Q"),this._castling[i.BLACK]&g&&(r+="k"),this._castling[i.BLACK]&m&&(r+="q"),e+=r||"-",e+=" ",e+=this._ep_square===l?"-":a(this._ep_square),e+=" "+this._half_moves,e+=" "+this._move_number}header(...e){if(0===e.length)return{...this._header};if(1===e.length){const[t]=e;return this._header[t]}if(2===e.length){const[t,n]=e;return this._header[t]=n,this._header}throw new Error("Incorrect number of arguments.")}_update_castling_rights_on_move(e,t){const n=this._castling[this._turn];this._castling[this._turn]&=function(e,t,n){let r=w|v;return t===u("e1")?(r&=~(d|p),e===r.KING&&(r&=n===u("a1")?~p:n===u("h1")?~d:~0)):t===u("e8")?(r&=~(g|m),e===r.KING&&(r&=n===u("a8")?~m:n===u("h8")?~g:~0)):t===u("a1")?r&=~p:t===u("h1")?r&=~d:t===u("a8")?r&=~m:t===u("h8")&&(r&=~g),r}(V(e),t,this._ep_square)&n}_attacked(e,t){for(let n=0;n<128;n++){if(l&n)continue;if(!this._board[n]||W(this._board[n])===e)continue;const r=this._board[n],i=V(r),o=n-t;if(0!==o){if(i===r.PAWN){if(o>0){if(e===i.BLACK&&(o===A-C||o===A+C))return!0}else if(e===i.WHITE&&(o===k-C||o===k+C))return!0}else if(i===r.KNIGHT){if(o===b||o===y||o===E||o===S||o===-S||o===-E||o===-y||o===-b)return!0}else if(i===r.BISHOP){if(Math.abs(o)%15==0||Math.abs(o)%17==0){const e=o/Math.abs(o)*(15===Math.abs(o)%17?15:17);let r=t+e;for(;r!==n;){if(this._board[r])break;r+=e}if(r===n)return!0}}else if(i===r.ROOK){if(o%16==0){const e=o/Math.abs(o)*16;let r=t+e;for(;r!==n;){if(this._board[r])break;r+=e}if(r===n)return!0}if(Math.abs(o)<16){const e=o/Math.abs(o);let r=t+e;for(;r!==n;){if(this._board[r])break;r+=e}if(r===n)return!0}}else if(i===r.QUEEN){if(o%16==0||Math.abs(o)<16||Math.abs(o)%15==0||Math.abs(o)%17==0){let e;if(o%16==0)e=o/Math.abs(o)*16;else if(Math.abs(o)<16)e=o/Math.abs(o);else{if(Math.abs(o)%15!=0&&Math.abs(o)%17!=0)continue;e=o/Math.abs(o)*(15===Math.abs(o)%17?15:17)}let r=t+e;for(;r!==n;){if(this._board[r])break;r+=e}if(r===n)return!0}}else if(i===r.KING&&(Math.abs(o)<=1||Math.abs(o)===A||Math.abs(o)===k||Math.abs(o)===E||Math.abs(o)===S))return!0}}return!1}_in_check(){return this._attacked(this._turn,this._kings[this._turn])}_in_checkmate(){return this._in_check()&&0===this._generate_moves().length}_in_stalemate(){return!this._in_check()&&0===this._generate_moves().length}_insufficient_material(){const e={[r.PAWN]:0,[r.KNIGHT]:0,[r.BISHOP]:0,[r.ROOK]:0,[r.QUEEN]:0,[r.KING]:0},t={[i.WHITE]:0,[i.BLACK]:0},n=[];for(let o=0;o<128;o++)if(this._board[o]){const s=V(this._board[o]),a=W(this._board[o]);e[s]++,t[a]++,s===r.BISHOP&&n.push(Q(o))}return e[r.PAWN]||e[r.ROOK]||e[r.QUEEN]||e[r.KNIGHT]>2||(e[r.KNIGHT]&&e[r.BISHOP])||e[r.BISHOP]>1&&(new Set(n).size>1||t[i.WHITE]!==t[i.BLACK])?!1:!0}_in_threefold_repetition(){const e=[];let t=0;for(;;){const n=this._undo_move();if(!n)break;e.push(n)}for(;;){const n=e.pop();if(!n)break;this._make_move(n)}for(let e=this._history.length-1;e>=0;e-=2)if(this._history[e].fen===this.fen()&&++t>=2)return!0;return!1}_push(e){this._history.push({move:e,kings:{...this._kings},turn:this._turn,castling:{...this._castling},ep_square:this._ep_square,half_moves:this._half_moves,move_number:this._move_number,fen:this.fen()})}_make_move(e){const t=this._turn,n=D(e),s=B(e),a=V(this._board[n]),c=this._board[s];let f=!1;if(this._board[s]=this._board[n],this._board[n]=void 0,a===r.KING&&(this._kings[t]=s,Math.abs(s-n)>1)){const e=s>n?s-1:s+1,r=s>n?s+1:s-1;this._board[e]=this._board[r],this._board[r]=void 0}if(e&w){const e=t===i.WHITE?s-16:s+16;this._board[e]=void 0,f=!0}if(e&v){const e=t===i.WHITE?r.QUEEN:r.QUEEN;this._board[s]=U(t,h[(4278190080&e)>>>24])}return c||f?this._half_moves=0:this._half_moves++,t===i.BLACK&&this._move_number++,this._turn=this._turn===i.WHITE?i.BLACK:i.WHITE,this._update_castling_rights(),this._update_en_passant_square(),e}_undo_move(){const e=this._history.pop();return e?(this._kings=e.kings,this._turn=e.turn,this._castling=e.castling,this._ep_square=e.ep_square,this._half_moves=e.half_moves,this._move_number=e.move_number,this._board=this._get_board_from_fen(e.fen),e.move):null}_get_board_from_fen(e){const t=e.split(" ")[0],n=new Array(128);let i=0;for(let e=0;e<t.length;e++){const o=t.charAt(e);if("/"===o)i+=8;else if(isNaN(parseInt(o,10))){const e=W(o)===o.toUpperCase()?this.WHITE:this.BLACK,t=f[o.toLowerCase()];n[i]=U(e,t),i++}else i+=parseInt(o,10)}return n}_generate_moves(e={}){const t=this._turn,n=this._turn===i.WHITE?i.BLACK:i.WHITE,s=t===i.WHITE?16:-16,c=[],h=Q(this._kings[t]);function d(e,t){let n=arguments.length>2&&void 0!==arguments[2]?arguments[2]:0;c.push(L(e,t)|n)}if(e.square){if(!("string"==typeof e.square?u(e.square):e.square))return[]}const p="string"==typeof e.square?u(e.square):e.square;for(let i=0;i<128;i++){if(l&i)continue;const c=this._board[i];if(!c||W(c)!==t)continue;if(p&&p!==i)continue;const g=V(c),m=i;if(g===r.PAWN){const r=m+s;if(!this._board[r]){if(d(m,r),t===this.WHITE&&$(r)===1||t===this.BLACK&&$(r)===6)d(m,r,v);else{const e=m+s+s;$(m)===6&&t===this.WHITE||$(m)===1&&t===this.BLACK?!this._board[e]&&d(m,e):void 0}}for(let e=0;e<2;e++){const r=m+s+(0===e?-1:1),i=this._board[r];i&&W(i)===n?$(r)===0&&t===this.BLACK||$(r)===7&&t===this.WHITE?d(m,r,v):d(m,r):r===this._ep_square&&d(m,this._ep_square,w)}}else{let t;g===r.KNIGHT?t=P:g===r.BISHOP?t=T:g===r.ROOK?t=_:g===r.QUEEN?t=O:g===r.KING&&(t=I);for(let r=0,i=t.length;r<i;r++){const i=t[r];let o=m;for(;;){if(o+=i,128&o)break;const t=this._board[o];if(t){W(t)===n&&d(m,o);break}if(d(m,o),g===this.KING)break}}}if(!e.legal){if(g===r.KING){if(this._castling[t]&d){const e=[],r=h+1,i=h+2;this._board[r]||this._board[i]||this._attacked(n,h)||this._attacked(n,r)||this._attacked(n,i)||e.push(L(h,i))}if(this._castling[t]&p){const e=[],r=h-1,i=h-2,o=h-3;this._board[r]||this._board[i]||this._board[o]||this._attacked(n,h)||this._attacked(n,r)||this._attacked(n,i)||e.push(L(h,i))}}}}if(e.legal||e.legal){const t=[];for(let e=0,n=c.length;e<n;e++){const n=c[e];this._push(n),this._make_move(n),this._in_check()||t.push(n),this._undo_move()}return t}return c}moves(e){const t=this._generate_moves(e),n=[];for(let e=0,r=t.length;e<r;e++)e.verbose?n.push(this._make_pretty(t[e])):n.push(this._move_to_san(t[e]));return n}move(e,t={}){let n=null;if("string"==typeof e){const r=this._generate_moves({legal:!0});for(let t=0,i=r.length;t<i;t++){const i=r[t];if(e===this._move_to_san(i)||e===this._move_to_lan(i)){n=i;break}}}else if("object"==typeof e){const t=this._generate_moves({legal:!0});for(let r=0,i=t.length;r<i;r++){const i=t[r];if(e.from===a(D(i))&&e.to===a(B(i))){if(e.promotion){const e=i&v,t=4278190080&e;if(e&&h[t>>>24]!==e.promotion)continue}n=i;break}}}if(!n)return null;const r=this._make_pretty(n);return this._push(n),this._make_move(n),r}_move_to_san(e){let t="";const n=D(e),s=B(e),c=V(this._board[n]);if(c!==r.KING||Math.abs(s-n)<=1)if(c!==r.PAWN)if(t+=h[c].toUpperCase(),function(e,t,n){const r=[];for(let i=0;i<128;i++){if(l&i)continue;if(i===t)continue;const o=this._board[i];if(!o||V(o)!==e||W(o)!==this._turn)continue;const s=this._generate_moves({square:i,legal:!0});for(let e=0;e<s.length;e++)if(B(s[e])===n){r.push(i);break}}return r}.call(this,c,n,s).length>0){let e=!1,r=!1;for(let t=0;t<c.length;t++){const i=c[t];$(n)!==$(i)&&(r=!0),F(n)!==F(i)&&(e=!0)}e?t+=a(n).charAt(0):r&&(t+=a(n).charAt(1))}else;else F(n)!==F(s)&&(t+=a(n).charAt(0));else t+=Math.abs(s-n)>1?s>n?"O-O":"O-O-O":"";return this._board[s]||e&w?t+="x":void 0,t+=a(s),e&v&&(t+="="+h[4278190080&e>>>24].toUpperCase()),this._push(e),this._make_move(e),this._in_check()&&(this._in_checkmate()?t+="#":t+="+"),this._undo_move(),t}_move_to_lan(e){const t=D(e),n=B(e);let r=a(t)+a(n);return e&v&&(r+="="+h[4278190080&e>>>24].toUpperCase()),r}_make_pretty(e){const t=D(e),n=B(e),i=V(this._board[t]),s={piece:h[i],from:a(t),to:a(n),san:this._move_to_san(e),lan:this._move_to_lan(e),before:this.fen(),after:"",captured:null,flags:""};if(this._board[n])s.captured=h[V(this._board[n])];else if(e&w){const e=this._turn===this.WHITE?n-16:n+16;s.captured=h[V(this._board[e])]}return e&o.BIG_PAWN&&(s.flags+=o.BIG_PAWN),e&o.EP_CAPTURE&&(s.flags+=o.EP_CAPTURE),e&o.CAPTURE&&(s.flags+=o.CAPTURE),e&o.KSIDE_CASTLE&&(s.flags+=o.KSIDE_CASTLE),e&o.QSIDE_CASTLE&&(s.flags+=o.QSIDE_CASTLE),e&o.PROMOTION&&(s.flags+=o.PROMOTION,s.promotion=h[4278190080&e>>>24]),this._push(e),this._make_move(e),s.after=this.fen(),this._undo_move(),s.flags.length||(s.flags=o.NORMAL),s}ascii(){let e="   +------------------------+\n";for(let t=0;t<8;t++){let n=" "+(8-t)+" |";for(let e=0;e<8;e++){const r=this._board[U(t,e)];n+=r?" "+h[V(r)]+" ":"   "}e+=n+" |\n"}return e+="   +------------------------+\n",e+="     a  b  c  d  e  f  g  h\n"}turn(){return this._turn===i.WHITE?"w":"b"}board(){const e=[];let t=[];for(let n=0;n<8;n++){t=[];for(let e=0;e<8;e++){const r=this._board[U(n,e)];t.push(r?{square:a(U(n,e)),type:h[V(r)],color:W(r)===i.WHITE?"w":"b"}:null)}e.push(t)}return e}squareColor(e){if("string"==typeof e){if(!(e in c))return null;e=c[e]}return 128&e?null:($(e)+F(e))%2?"dark":"light"}history(e={}){const t=[];let n=0;for(;;){const e=this._undo_move();if(!e)break;t.push(e)}for(;;){const r=t.pop();if(!r)break;e.verbose?n.push(this._make_pretty(r)):n.push(this._move_to_san(r)),this._make_move(r)}return n}get(e){if("string"==typeof e){if(!(e in c))return null;e=c[e]}if(128&e)return null;const t=this._board[e];return t?{square:a(e),type:h[V(t)],color:W(t)===i.WHITE?"w":"b"}:null}put(e,t){if("string"==typeof t){if(!(t in c))return!1;t=c[t]}if(128&t)return!1;if(!("type"in e)||!("color"in e))return!1;if(!(e.type.toLowerCase()in f))return!1;const n=f[e.type.toLowerCase()],o="w"===e.color?i.WHITE:i.BLACK;return this._board[t]=U(o,n),n===r.KING&&(this._kings[o]=t),this._update_castling_rights(),this._update_en_passant_square(),this._update_setup(this.fen()),!0}remove(e){if("string"==typeof e){if(!(e in c))return null;e=c[e]}if(128&e)return null;const t=this.get(e);return this._board[e]=void 0,t&&t.type===h[r.KING]&&(this._kings["w"===t.color?i.WHITE:i.BLACK]=l),this._update_castling_rights(),this._update_en_passant_square(),this._update_setup(this.fen()),t}perft(e){const t=this._generate_moves({legal:!0});let n=0;if(1===e)return t.length;for(let r=0;r<t.length;r++){const i=t[r];this._push(i),this._make_move(i),n+=this.perft(e-1),this._undo_move()}return n}fen(){return this.fen()}pgn(e={}){const t=Object.keys(this._header).map(t=>`[${t} "${this._header[t]}"]`);let n="",r=1,i=this._history.length;if(0===i)return t.join("\n")+"\n";e.max_width&&"number"==typeof e.max_width||(e.max_width=0);let o=!!e.newline_char&&"string"==typeof e.newline_char?e.newline_char:"\n";const s=function(){0!==n.length&&" "!==n[n.length-1]&&(n+=" ")},a=function(e){return e.replace(/\\/g,"\\\\").replace(/\]/g,"\\]")};for(;i>0;){const t=this._history[--i];if(this._undo_move(),t.move.color===this.WHITE){if(n.trim().length>0&&s(),n+=`${r}. `,this._comments[this.fen()]){const e=a(this._comments[this.fen()]);n+=`{${e}} `}n+=t.move.san,r++}else{if(0===this.history().length){if(n.trim().length>0&&s(),n+=`${r}...`,this._comments[this.fen()]){const e=a(this._comments[this.fen()]);n+=`{${e}} `}n+=t.move.san,r++}else{if(this._comments[this.fen()]){const e=a(this._comments[this.fen()]);n+=` {${e}} `}n+=t.move.san}}if(this._comments[this.fen()]){const e=a(this._comments[this.fen()]);n+=` {${e}} `}}if("string"==typeof this._header.Result&&"*"!==this._header.Result&&(n.trim().length>0&&s(),n+=this._header.Result),e.max_width>0)return function(e,t,n){const r=e.split(" ");let i="",o="";for(let e=0;e<r.length;e++){if(0!==e&&o.length+r[e].length>t-1){i+=`${o}${n}`,o="";continue}0!==e&&(o+=" "),o+=r[e]}return i+=o}(t.join(o)+o+o+n,e.max_width,o);return t.join(o)+o+o+n}loadPgn(e,t={}){function n(e,t){return`Invalid PGN: ${e}${t?` at index ${t}`:""}`}const r=function(e){const t=e.trim();return t.replace(/\r?\n|\r/g," ").replace(/ +/g," ")}(e),i=/\s*(\{([^}]*)\}|;([^\r?\n]*))/g;let o=r.replace(i,(e,t,n)=>n?` {${n.trim()}} `:"");o=o.replace(/\d+\.(\.\.)?/g,e=>` ${e} `).replace(/\s+/g," ").trim();const s=/\[([A-Za-z]+)\s+\"([^\"]*)\"\]/g;let a;for(;null!==(a=s.exec(o));){const[e,t,r]=a;this.header(t,r),o=o.replace(e,"")}o=o.trim();const c=/\{([^}]*)}/g;let u,l=0;const f=new Map;for(;null!==(u=c.exec(o));){const[e,t]=u,n=e,r=t.trim();if(0===l){const e=o.substring(0,u.index).split(" ").filter(e=>e).length,t=e%3==1?e+1:e;f.set(t,r)}l++,o=o.replace(n,"")}o=o.trim();const h=/(\b[a-h][1-8]|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|O-O(?:-O)?|\d+\.(?:\.\.)?)(?:\+|#)?(?:\s*[\?\!]+)?/g,d=o.match(h);if(!d)throw new Error(n("No moves found"));let p=0;const g=()=>{if(p>=d.length)return null;let e=d[p++];return e.replace(/[\?\!\+#]/g,"").trim()};let m=g();for(;m;){if(/^\d+\./.test(m)){if(/^\d+\.\.\.$/.test(m)){m=g();continue}m=g()}else{if(!this.move(m)){const e=d.slice(Math.max(0,p-5),p+5).join(" ");throw new Error(n(`Illegal move: ${m}`,`around "${e}"`))}const e=this._history.length;f.has(e)&&this.setComment(f.get(e)),m=g()}}setComment(e){this._comments[this.fen()]=e.replace("\\","\\\\").replace("}","\\}").replace("{","\\{")}getComment(){return this._comments[this.fen()]}getComments(){return{...this._comments}}deleteComment(){const e=this._comments[this.fen()];return delete this._comments[this.fen()],e}deleteComments(){this._comments={}}square_color=this.squareColor,in_check=()=>this._in_check(),in_checkmate=()=>this._in_checkmate(),in_stalemate=()=>this._in_stalemate(),insufficient_material=()=>this._insufficient_material(),in_threefold_repetition=()=>this._in_threefold_repetition(),game_over=()=>this._in_checkmate()||this._in_stalemate()||this._insufficient_material()||this._in_threefold_repetition(),validate_fen=e=>this._validate_fen(e).valid,SQUARES=Object.keys(c),FLAGS=o,PIECES={[h[r.PAWN]]:r.PAWN,[h[r.KNIGHT]]:r.KNIGHT,[h[r.BISHOP]]:r.BISHOP,[h[r.ROOK]]:r.ROOK,[h[r.QUEEN]]:r.QUEEN,[h[r.KING]]:r.KING},WHITE="w",BLACK="b",PAWN="p",KNIGHT="n",BISHOP="b",ROOK="r",QUEEN="q",KING="k"}_validate_fen(e){const t={valid:!1,error_number:0,error:"No errors."};if("string"!=typeof e)return t.error_number=1,t.error="FEN is not a string.",t;const n=e.split(/\s+/);if(n.length<4)return t.error_number=2,t.error="FEN should contain at least 4 space-delimited fields.",t;const r=/^\s*$/;if(r.test(n[0]))return t.error_number=3,t.error="1st field (piece positions) is invalid.",t;const o=n[0].split("/");if(8!==o.length)return t.error_number=4,t.error="1st field should contain 8 '/'-delimited rows.",t;for(let e=0;e<8;e++){let n=0;const i=o[e];for(let e=0;e<i.length;e++){if(isNaN(parseInt(i[e])))if(/^[prnbqkPRNBQK]$/.test(i[e]))n++;else return t.error_number=5,t.error="1st field (piece positions) is invalid [invalid piece].",t;else n+=parseInt(i[e])}if(8!==n)return t.error_number=6,t.error="1st field (piece positions) is invalid [row too large].",t}if(!/^(w|b)$/.test(n[1]))return t.error_number=7,t.error="2nd field (side to move) is invalid.",t;if(!/^(KQ?k?q?|Qk?q?|kq?|q|-)$/.test(n[2]))return t.error_number=8,t.error="3rd field (castling availability) is invalid.",t;if(!/^(-|[abcdefgh][36])$/.test(n[3]))return t.error_number=9,t.error="4th field (en-passant square) is invalid.",t;if(n.length>=5&&(isNaN(parseInt(n[4],10))||parseInt(n[4],10)<0))return t.error_number=10,t.error="5th field (half-move clock) is invalid.",t;if(n.length>=6&&(isNaN(parseInt(n[5],10))||parseInt(n[5],10)<=0))return t.error_number=11,t.error="6th field (move number) is invalid.",t;return t.valid=!0,t}}
+
+        // Three.js embedded (minimal version)
+        // Due to size constraints, using a simplified Three.js-like 3D engine
+        class Vector3 {
+            constructor(x = 0, y = 0, z = 0) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+            
+            set(x, y, z) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+                return this;
+            }
+            
+            copy(v) {
+                this.x = v.x;
+                this.y = v.y;
+                this.z = v.z;
+                return this;
+            }
+            
+            add(v) {
+                this.x += v.x;
+                this.y += v.y;
+                this.z += v.z;
+                return this;
+            }
+            
+            sub(v) {
+                this.x -= v.x;
+                this.y -= v.y;
+                this.z -= v.z;
+                return this;
+            }
+            
+            multiplyScalar(s) {
+                this.x *= s;
+                this.y *= s;
+                this.z *= s;
+                return this;
+            }
+            
+            normalize() {
+                const length = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+                if (length > 0) {
+                    this.x /= length;
+                    this.y /= length;
+                    this.z /= length;
+                }
+                return this;
+            }
+            
+            length() {
+                return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+            }
+        }
+
+        class Matrix4 {
+            constructor() {
+                this.elements = [
+                    1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 1, 0,
+                    0, 0, 0, 1
+                ];
+            }
+            
+            identity() {
+                this.set(
+                    1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 1, 0,
+                    0, 0, 0, 1
+                );
+                return this;
+            }
+            
+            set(n11, n12, n13, n14, n21, n22, n23, n24, n31, n32, n33, n34, n41, n42, n43, n44) {
+                const te = this.elements;
+                te[0] = n11; te[4] = n12; te[8] = n13; te[12] = n14;
+                te[1] = n21; te[5] = n22; te[9] = n23; te[13] = n24;
+                te[2] = n31; te[6] = n32; te[10] = n33; te[14] = n34;
+                te[3] = n41; te[7] = n42; te[11] = n43; te[15] = n44;
+                return this;
+            }
+            
+            makeTranslation(x, y, z) {
+                this.set(
+                    1, 0, 0, x,
+                    0, 1, 0, y,
+                    0, 0, 1, z,
+                    0, 0, 0, 1
+                );
+                return this;
+            }
+            
+            makeRotationY(theta) {
+                const c = Math.cos(theta), s = Math.sin(theta);
+                this.set(
+                    c, 0, s, 0,
+                    0, 1, 0, 0,
+                    -s, 0, c, 0,
+                    0, 0, 0, 1
+                );
+                return this;
+            }
+            
+            multiply(m) {
+                return this.multiplyMatrices(this, m);
+            }
+            
+            multiplyMatrices(a, b) {
+                const ae = a.elements;
+                const be = b.elements;
+                const te = this.elements;
+                
+                const a11 = ae[0], a12 = ae[4], a13 = ae[8], a14 = ae[12];
+                const a21 = ae[1], a22 = ae[5], a23 = ae[9], a24 = ae[13];
+                const a31 = ae[2], a32 = ae[6], a33 = ae[10], a34 = ae[14];
+                const a41 = ae[3], a42 = ae[7], a43 = ae[11], a44 = ae[15];
+                
+                const b11 = be[0], b12 = be[4], b13 = be[8], b14 = be[12];
+                const b21 = be[1], b22 = be[5], b23 = be[9], b24 = be[13];
+                const b31 = be[2], b32 = be[6], b33 = be[10], b34 = be[14];
+                const b41 = be[3], b42 = be[7], b43 = be[11], b44 = be[15];
+                
+                te[0] = a11 * b11 + a12 * b21 + a13 * b31 + a14 * b41;
+                te[4] = a11 * b12 + a12 * b22 + a13 * b32 + a14 * b42;
+                te[8] = a11 * b13 + a12 * b23 + a13 * b33 + a14 * b43;
+                te[12] = a11 * b14 + a12 * b24 + a13 * b34 + a14 * b44;
+                
+                te[1] = a21 * b11 + a22 * b21 + a23 * b31 + a24 * b41;
+                te[5] = a21 * b12 + a22 * b22 + a23 * b32 + a24 * b42;
+                te[9] = a21 * b13 + a22 * b23 + a23 * b33 + a24 * b43;
+                te[13] = a21 * b14 + a22 * b24 + a23 * b34 + a24 * b44;
+                
+                te[2] = a31 * b11 + a32 * b21 + a33 * b31 + a34 * b41;
+                te[6] = a31 * b12 + a32 * b22 + a33 * b32 + a34 * b42;
+                te[10] = a31 * b13 + a32 * b23 + a33 * b33 + a34 * b43;
+                te[14] = a31 * b14 + a32 * b24 + a33 * b34 + a34 * b44;
+                
+                te[3] = a41 * b11 + a42 * b21 + a43 * b31 + a44 * b41;
+                te[7] = a41 * b12 + a42 * b22 + a43 * b32 + a44 * b42;
+                te[11] = a41 * b13 + a42 * b23 + a43 * b33 + a44 * b43;
+                te[15] = a41 * b14 + a42 * b24 + a43 * b34 + a44 * b44;
+                
+                return this;
+            }
+            
+            makePerspective(left, right, top, bottom, near, far) {
+                const te = this.elements;
+                const x = 2 * near / (right - left);
+                const y = 2 * near / (top - bottom);
+                const a = (right + left) / (right - left);
+                const b = (top + bottom) / (top - bottom);
+                const c = -(far + near) / (far - near);
+                const d = -2 * far * near / (far - near);
+                
+                te[0] = x; te[4] = 0; te[8] = a; te[12] = 0;
+                te[1] = 0; te[5] = y; te[9] = b; te[13] = 0;
+                te[2] = 0; te[6] = 0; te[10] = c; te[14] = d;
+                te[3] = 0; te[7] = 0; te[11] = -1; te[15] = 0;
+                
+                return this;
+            }
+        }
+
+        // Simple 3D renderer
+        class Simple3DRenderer {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.width = canvas.width;
+                this.height = canvas.height;
+                this.camera = {
+                    position: new Vector3(0, 8, 10),
+                    rotation: new Vector3(-0.3, 0, 0),
+                    fov: 45
+                };
+                this.objects = [];
+                this.lights = [];
+                
+                this.resize();
+            }
+            
+            resize() {
+                const rect = this.canvas.getBoundingClientRect();
+                this.canvas.width = rect.width * window.devicePixelRatio;
+                this.canvas.height = rect.height * window.devicePixelRatio;
+                this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                this.width = rect.width;
+                this.height = rect.height;
+            }
+            
+            project(point) {
+                // Simple perspective projection
+                const distance = this.camera.position.z;
+                const scale = distance / (distance - point.z);
+                const x = (point.x * scale * 60) + this.width / 2;
+                const y = (point.y * scale * -60) + this.height / 2;
+                return { x, y, z: point.z };
+            }
+            
+            render() {
+                this.ctx.clearRect(0, 0, this.width, this.height);
+                
+                // Sort objects by depth
+                const sortedObjects = [...this.objects].sort((a, b) => 
+                    b.position.z - a.position.z
+                );
+                
+                for (const obj of sortedObjects) {
+                    this.renderObject(obj);
+                }
+            }
+            
+            renderObject(obj) {
+                const projected = this.project(obj.position);
+                
+                this.ctx.save();
+                this.ctx.translate(projected.x, projected.y);
+                
+                // Simple lighting calculation
+                const lightIntensity = this.calculateLighting(obj.position);
+                
+                if (obj.type === 'cube') {
+                    this.renderCube(obj, lightIntensity);
+                } else if (obj.type === 'piece') {
+                    this.renderPiece(obj, lightIntensity);
+                }
+                
+                this.ctx.restore();
+            }
+            
+            calculateLighting(position) {
+                // Simple ambient + directional lighting
+                const ambient = 0.3;
+                const directional = 0.7;
+                const lightDir = new Vector3(1, 1, 1).normalize();
+                return ambient + directional * Math.max(0, 0.5);
+            }
+            
+            renderCube(obj, lightIntensity) {
+                const size = obj.size * 30;
+                const color = this.applyLighting(obj.color, lightIntensity);
+                
+                // Draw square (simplified cube)
+                this.ctx.fillStyle = color;
+                this.ctx.fillRect(-size/2, -size/2, size, size);
+                
+                if (obj.highlight) {
+                    this.ctx.strokeStyle = obj.highlight;
+                    this.ctx.lineWidth = 3;
+                    this.ctx.strokeRect(-size/2, -size/2, size, size);
+                }
+            }
+            
+            renderPiece(obj, lightIntensity) {
+                const size = obj.size * 25;
+                const color = this.applyLighting(obj.color, lightIntensity);
+                
+                this.ctx.fillStyle = color;
+                this.ctx.font = `${size}px Arial`;
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                this.ctx.fillText(obj.symbol, 0, 0);
+                
+                // Add shadow for depth
+                this.ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                this.ctx.fillText(obj.symbol, 2, 2);
+            }
+            
+            applyLighting(color, intensity) {
+                // Simple color intensity modification
+                const rgb = this.hexToRgb(color);
+                if (!rgb) return color;
+                
+                const r = Math.min(255, rgb.r * intensity);
+                const g = Math.min(255, rgb.g * intensity);
+                const b = Math.min(255, rgb.b * intensity);
+                
+                return `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
+            }
+            
+            hexToRgb(hex) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? {
+                    r: parseInt(result[1], 16),
+                    g: parseInt(result[2], 16),
+                    b: parseInt(result[3], 16)
+                } : null;
+            }
+            
+            addObject(obj) {
+                this.objects.push(obj);
+            }
+            
+            removeObject(obj) {
+                const index = this.objects.indexOf(obj);
+                if (index > -1) {
+                    this.objects.splice(index, 1);
+                }
+            }
+            
+            clear() {
+                this.objects = [];
+            }
+        }
+
+        // Chess Game Implementation
+        class ChessGame3D {
+            constructor() {
+                this.chess = new Chess();
+                this.renderer = null;
+                this.canvas = null;
+                this.difficulty = 'easy';
+                this.playerColor = 'white';
+                this.isAiVsAi = false;
+                this.selectedSquare = null;
+                this.highlightedSquares = [];
+                this.boardObjects = [];
+                this.pieceObjects = new Map();
+                this.isPlayerTurn = true;
+                this.gameStats = this.loadStats();
+                
+                this.initializeGame();
+                this.setupEventListeners();
+            }
+            
+            initializeGame() {
+                this.canvas = document.getElementById('threeCanvas');
+                this.renderer = new Simple3DRenderer(this.canvas);
+                
+                this.createBoard();
+                this.createPieces();
+                this.updateDisplay();
+            }
+            
+            createBoard() {
+                this.boardObjects = [];
+                
+                for (let rank = 0; rank < 8; rank++) {
+                    for (let file = 0; file < 8; file++) {
+                        const square = String.fromCharCode(97 + file) + (8 - rank);
+                        const isLight = (rank + file) % 2 === 0;
+                        
+                        const boardSquare = {
+                            type: 'cube',
+                            position: new Vector3(file - 3.5, 0, rank - 3.5),
+                            size: 1,
+                            color: isLight ? '#f0d9b5' : '#b58863',
+                            square: square,
+                            highlight: null
+                        };
+                        
+                        this.boardObjects.push(boardSquare);
+                        this.renderer.addObject(boardSquare);
+                    }
+                }
+            }
+            
+            createPieces() {
+                this.pieceObjects.clear();
+                
+                const pieces = this.chess.board();
+                for (let rank = 0; rank < 8; rank++) {
+                    for (let file = 0; file < 8; file++) {
+                        const piece = pieces[rank][file];
+                        if (piece) {
+                            this.createPiece(piece, file, rank);
+                        }
+                    }
+                }
+            }
+            
+            createPiece(piece, file, rank) {
+                const symbols = {
+                    'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚',
+                    'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔'
+                };
+                
+                const symbol = piece.color === 'w' ? 
+                    symbols[piece.type.toUpperCase()] : 
+                    symbols[piece.type.toLowerCase()];
+                
+                const pieceObj = {
+                    type: 'piece',
+                    position: new Vector3(file - 3.5, 0.5, rank - 3.5),
+                    size: 1.2,
+                    color: piece.color === 'w' ? '#ffffff' : '#333333',
+                    symbol: symbol,
+                    piece: piece,
+                    square: piece.square
+                };
+                
+                this.pieceObjects.set(piece.square, pieceObj);
+                this.renderer.addObject(pieceObj);
+            }
+            
+            setupEventListeners() {
+                // Menu event listeners
+                document.querySelectorAll('.color-button').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.color-button').forEach(b => b.classList.remove('selected'));
+                        e.target.classList.add('selected');
+                        this.playerColor = e.target.dataset.color;
+                    });
+                });
+                
+                document.querySelectorAll('.menu-button').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const difficulty = e.target.dataset.difficulty;
+                        if (difficulty) {
+                            this.startGame(difficulty);
+                        }
+                    });
+                });
+                
+                document.getElementById('aiVsAiBtn').addEventListener('click', () => {
+                    this.startAiVsAi();
+                });
+                
+                // Game control listeners
+                document.getElementById('undoBtn').addEventListener('click', () => {
+                    this.undoMove();
+                });
+                
+                document.getElementById('restartBtn').addEventListener('click', () => {
+                    this.restartGame();
+                });
+                
+                document.getElementById('menuBtn').addEventListener('click', () => {
+                    this.showMenu();
+                });
+                
+                // Canvas click listener
+                this.canvas.addEventListener('click', (e) => {
+                    this.handleCanvasClick(e);
+                });
+                
+                // Window resize listener
+                window.addEventListener('resize', () => {
+                    this.renderer.resize();
+                    this.renderer.render();
+                });
+            }
+            
+            startGame(difficulty) {
+                this.difficulty = difficulty;
+                this.isAiVsAi = false;
+                this.chess.reset();
+                this.isPlayerTurn = this.playerColor === 'white';
+                
+                document.getElementById('menuScreen').style.display = 'none';
+                document.getElementById('gameUI').style.display = 'block';
+                document.getElementById('difficultyDisplay').textContent = 
+                    difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+                
+                this.createPieces();
+                this.updateDisplay();
+                this.updateStatus('Game started! Good luck!');
+                
+                if (!this.isPlayerTurn) {
+                    setTimeout(() => this.makeAIMove(), 1000);
+                }
+                
+                this.startRenderLoop();
+            }
+            
+            startAiVsAi() {
+                this.isAiVsAi = true;
+                this.difficulty = 'medium';
+                this.chess.reset();
+                
+                document.getElementById('menuScreen').style.display = 'none';
+                document.getElementById('gameUI').style.display = 'block';
+                document.getElementById('difficultyDisplay').textContent = 'AI vs AI';
+                
+                this.createPieces();
+                this.updateDisplay();
+                this.updateStatus('AI vs AI - Watch the battle!');
+                
+                this.startRenderLoop();
+                this.playAiVsAi();
+            }
+            
+            async playAiVsAi() {
+                while (!this.chess.game_over()) {
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    if (this.chess.game_over()) break;
+                    
+                    this.makeAIMove();
+                    this.updateDisplay();
+                }
+            }
+            
+            startRenderLoop() {
+                const animate = () => {
+                    this.renderer.render();
+                    requestAnimationFrame(animate);
+                };
+                animate();
+            }
+            
+            handleCanvasClick(event) {
+                if (this.isAiVsAi || (!this.isPlayerTurn && !this.isAiVsAi)) return;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                
+                // Simple click detection - map screen coordinates to board squares
+                const file = Math.floor((x / rect.width) * 8);
+                const rank = Math.floor((y / rect.height) * 8);
+                
+                if (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
+                    const square = String.fromCharCode(97 + file) + (8 - rank);
+                    this.handleSquareClick(square);
+                }
+            }
+            
+            handleSquareClick(square) {
+                if (this.selectedSquare === square) {
+                    this.clearSelection();
+                    return;
+                }
+                
+                if (this.selectedSquare) {
+                    // Try to make a move
+                    const move = this.chess.move({
+                        from: this.selectedSquare,
+                        to: square,
+                        promotion: 'q' // Always promote to queen for simplicity
+                    });
+                    
+                    if (move) {
+                        this.playSound('move');
+                        this.clearSelection();
+                        this.updatePieces();
+                        this.updateDisplay();
+                        
+                        if (this.chess.in_check()) {
+                            this.playSound('check');
+                        }
+                        
+                        if (this.chess.game_over()) {
+                            this.handleGameOver();
+                            return;
+                        }
+                        
+                        this.isPlayerTurn = false;
+                        setTimeout(() => this.makeAIMove(), 500);
+                    } else {
+                        this.clearSelection();
+                        this.selectSquare(square);
+                    }
+                } else {
+                    this.selectSquare(square);
+                }
+            }
+            
+            selectSquare(square) {
+                const piece = this.chess.get(square);
+                if (!piece || piece.color !== this.chess.turn()) return;
+                
+                this.selectedSquare = square;
+                this.highlightSquare(square, '#00ffff');
+                
+                // Highlight legal moves
+                const moves = this.chess.moves({ square: square, verbose: true });
+                moves.forEach(move => {
+                    this.highlightSquare(move.to, '#ffff00');
+                });
+                
+                this.renderer.render();
+            }
+            
+            clearSelection() {
+                this.selectedSquare = null;
+                this.clearHighlights();
+                this.renderer.render();
+            }
+            
+            highlightSquare(square, color) {
+                const boardSquare = this.boardObjects.find(obj => obj.square === square);
+                if (boardSquare) {
+                    boardSquare.highlight = color;
+                }
+            }
+            
+            clearHighlights() {
+                this.boardObjects.forEach(obj => {
+                    obj.highlight = null;
+                });
+            }
+            
+            updatePieces() {
+                // Clear existing pieces
+                this.pieceObjects.forEach(piece => {
+                    this.renderer.removeObject(piece);
+                });
+                this.pieceObjects.clear();
+                
+                // Create new pieces based on current board state
+                this.createPieces();
+            }
+            
+            makeAIMove() {
+                if (this.chess.game_over()) return;
+                
+                const moves = this.chess.moves();
+                if (moves.length === 0) return;
+                
+                let selectedMove;
+                
+                if (this.difficulty === 'easy') {
+                    // Random move
+                    selectedMove = moves[Math.floor(Math.random() * moves.length)];
+                } else if (this.difficulty === 'medium') {
+                    // Simple evaluation
+                    selectedMove = this.getBestMove(2);
+                } else {
+                    // Hard difficulty - deeper search
+                    selectedMove = this.getBestMove(4);
+                }
+                
+                const move = this.chess.move(selectedMove);
+                if (move) {
+                    this.playSound('move');
+                    this.updatePieces();
+                    this.updateDisplay();
+                    
+                    if (this.chess.in_check()) {
+                        this.playSound('check');
+                    }
+                    
+                    if (this.chess.game_over()) {
+                        this.handleGameOver();
+                        return;
+                    }
+                    
+                    if (!this.isAiVsAi) {
+                        this.isPlayerTurn = true;
+                    }
+                }
+            }
+            
+            getBestMove(depth) {
+                const moves = this.chess.moves();
+                let bestMove = moves[0];
+                let bestValue = -Infinity;
+                
+                for (const move of moves) {
+                    this.chess.move(move);
+                    const value = this.minimax(depth - 1, -Infinity, Infinity, false);
+                    this.chess.undo();
+                    
+                    if (value > bestValue) {
+                        bestValue = value;
+                        bestMove = move;
+                    }
+                }
+                
+                return bestMove;
+            }
+            
+            minimax(depth, alpha, beta, maximizingPlayer) {
+                if (depth === 0 || this.chess.game_over()) {
+                    return this.evaluateBoard();
+                }
+                
+                const moves = this.chess.moves();
+                
+                if (maximizingPlayer) {
+                    let maxEval = -Infinity;
+                    for (const move of moves) {
+                        this.chess.move(move);
+                        const eval = this.minimax(depth - 1, alpha, beta, false);
+                        this.chess.undo();
+                        maxEval = Math.max(maxEval, eval);
+                        alpha = Math.max(alpha, eval);
+                        if (beta <= alpha) break;
+                    }
+                    return maxEval;
+                } else {
+                    let minEval = Infinity;
+                    for (const move of moves) {
+                        this.chess.move(move);
+                        const eval = this.minimax(depth - 1, alpha, beta, true);
+                        this.chess.undo();
+                        minEval = Math.min(minEval, eval);
+                        beta = Math.min(beta, eval);
+                        if (beta <= alpha) break;
+                    }
+                    return minEval;
+                }
+            }
+            
+            evaluateBoard() {
+                const pieceValues = {
+                    'p': 1, 'n': 3, 'b': 3, 'r': 5, 'q': 9, 'k': 0
+                };
+                
+                let score = 0;
+                const board = this.chess.board();
+                
+                for (let rank = 0; rank < 8; rank++) {
+                    for (let file = 0; file < 8; file++) {
+                        const piece = board[rank][file];
+                        if (piece) {
+                            const value = pieceValues[piece.type] || 0;
+                            score += piece.color === 'w' ? value : -value;
+                        }
+                    }
+                }
+                
+                // Add positional bonuses
+                if (this.chess.in_checkmate()) {
+                    score += this.chess.turn() === 'w' ? -1000 : 1000;
+                } else if (this.chess.in_check()) {
+                    score += this.chess.turn() === 'w' ? -50 : 50;
+                }
+                
+                return this.chess.turn() === 'w' ? score : -score;
+            }
+            
+            updateDisplay() {
+                document.getElementById('currentPlayer').textContent = 
+                    this.chess.turn() === 'w' ? 'White' : 'Black';
+                
+                let status = 'Playing';
+                if (this.chess.in_checkmate()) {
+                    status = 'Checkmate';
+                } else if (this.chess.in_check()) {
+                    status = 'Check';
+                } else if (this.chess.in_stalemate()) {
+                    status = 'Stalemate';
+                } else if (this.chess.in_draw()) {
+                    status = 'Draw';
+                }
+                
+                document.getElementById('gameStatus').textContent = status;
+            }
+            
+            handleGameOver() {
+                let message = '';
+                let result = '';
+                
+                if (this.chess.in_checkmate()) {
+                    const winner = this.chess.turn() === 'w' ? 'Black' : 'White';
+                    message = `Checkmate! ${winner} wins!`;
+                    result = winner.toLowerCase() === this.playerColor ? 'win' : 'loss';
+                } else if (this.chess.in_stalemate()) {
+                    message = 'Stalemate! It\'s a draw!';
+                    result = 'draw';
+                } else if (this.chess.in_draw()) {
+                    message = 'Draw!';
+                    result = 'draw';
+                }
+                
+                this.updateStatus(message);
+                this.playSound('gameOver');
+                
+                if (!this.isAiVsAi) {
+                    this.updateStats(result);
+                }
+            }
+            
+            undoMove() {
+                if (this.chess.history().length === 0) return;
+                
+                // Undo player move
+                this.chess.undo();
+                
+                // Undo AI move if it exists
+                if (this.chess.history().length > 0 && !this.isAiVsAi) {
+                    this.chess.undo();
+                }
+                
+                this.updatePieces();
+                this.updateDisplay();
+                this.clearSelection();
+                this.isPlayerTurn = true;
+            }
+            
+            restartGame() {
+                this.chess.reset();
+                this.updatePieces();
+                this.updateDisplay();
+                this.clearSelection();
+                this.isPlayerTurn = this.playerColor === 'white';
+                this.updateStatus('Game restarted!');
+                
+                if (!this.isPlayerTurn && !this.isAiVsAi) {
+                    setTimeout(() => this.makeAIMove(), 1000);
+                } else if (this.isAiVsAi) {
+                    this.playAiVsAi();
+                }
+            }
+            
+            showMenu() {
+                document.getElementById('menuScreen').style.display = 'flex';
+                document.getElementById('gameUI').style.display = 'none';
+            }
+            
+            updateStatus(message) {
+                document.getElementById('statusMessage').textContent = message;
+            }
+            
+            playSound(type) {
+                // Create simple audio feedback using Web Audio API
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                switch (type) {
+                    case 'move':
+                        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+                        break;
+                    case 'capture':
+                        oscillator.frequency.setValueAtTime(550, audioCtx.currentTime);
+                        break;
+                    case 'check':
+                        oscillator.frequency.setValueAtTime(660, audioCtx.currentTime);
+                        break;
+                    case 'gameOver':
+                        oscillator.frequency.setValueAtTime(220, audioCtx.currentTime);
+                        break;
+                }
+                
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.3);
+            }
+            
+            loadStats() {
+                const stats = localStorage.getItem('chess3d_stats');
+                return stats ? JSON.parse(stats) : { wins: 0, losses: 0, draws: 0 };
+            }
+            
+            updateStats(result) {
+                if (result === 'win') this.gameStats.wins++;
+                else if (result === 'loss') this.gameStats.losses++;
+                else if (result === 'draw') this.gameStats.draws++;
+                
+                localStorage.setItem('chess3d_stats', JSON.stringify(this.gameStats));
+            }
+        }
+
+        // Initialize the game when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ChessGame3D();
+        });
+
+        // Update todos to mark completion
+        const updateTodo = (id, status) => {
+            // This would update the todo status in a real implementation
+            console.log(`Todo ${id} marked as ${status}`);
+        };
+    </script>
+</body>
+</html>
